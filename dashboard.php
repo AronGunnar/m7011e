@@ -8,53 +8,6 @@ if (!isset($_SESSION['user_id'])) {
     header('Location: login.php'); // Redirect to login page if not logged in
     exit;
 }
-
-// Database connection
-include('db_connection.php');
-
-// Fetch current user's profile
-$user_id = $_SESSION['user_id'];
-
-// Handle form submission for updating bio
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_bio'])) {
-    $bio = $_POST['bio'];
-    $sql_update_bio = "UPDATE Profiles SET bio = ? WHERE user_id = ?";
-    $stmt_update = $conn->prepare($sql_update_bio);
-    $stmt_update->bind_param('si', $bio, $user_id);
-
-    if ($stmt_update->execute()) {
-        echo "<p class='message success'>Bio updated successfully!</p>";
-    } else {
-        echo "<p class='message error'>Error updating bio: " . $stmt_update->error . "</p>";
-    }
-}
-
-// Fetch the current bio
-$sql_fetch_bio = "SELECT bio FROM Profiles WHERE user_id = ?";
-$stmt_fetch = $conn->prepare($sql_fetch_bio);
-$stmt_fetch->bind_param('i', $user_id);
-$stmt_fetch->execute();
-$result = $stmt_fetch->get_result();
-$profile = $result->fetch_assoc();
-$bio = $profile['bio'] ?? '';
-
-// Fetch the current user's details (from Users table)
-$sql_fetch_user = "SELECT * FROM Users WHERE user_id = ?";
-$stmt_fetch_user = $conn->prepare($sql_fetch_user);
-$stmt_fetch_user->bind_param('i', $user_id);
-$stmt_fetch_user->execute();
-$result_user = $stmt_fetch_user->get_result();
-$user = $result_user->fetch_assoc();
-
-// Display user session information with a plain text "Dashboard" link
-function displayUserSession() {
-    if (isset($_SESSION['username'])) {
-        echo '<div class="session-info">';
-        echo '<p>Logged in as: ' . htmlspecialchars($_SESSION['username']) . '</p>';
-        echo '<a href="dashboard.php" class="dashboard-link">Dashboard</a>';
-        echo '</div>';
-    }
-}
 ?>
 
 <!DOCTYPE html>
@@ -196,47 +149,132 @@ function displayUserSession() {
     </style>
 </head>
 <body>
-
     <div class="container">
-        <?php displayUserSession(); ?>
+        <?php
+        // Display logged in user information
+        if (isset($_SESSION['username'])) {
+            echo '<div class="session-info">';
+            echo '<p>Logged in as: ' . htmlspecialchars($_SESSION['username']) . '</p>';
+            echo '<a href="dashboard.php" class="dashboard-link">Dashboard</a>';
+            echo '</div>';
+        }
+        ?>
 
         <a href="index.php" class="back-home">Back to Home</a>
 
-        <h1>Welcome, <?php echo $_SESSION['username']; ?>!</h1>
+        <h1>Welcome, <span id="username"></span>!</h1>
         <h2>Your Profile</h2>
 
-        <!-- Form to update bio -->
-        <form method="POST" action="">
-            <textarea name="bio" placeholder="Enter your bio"><?php echo $bio; ?></textarea><br>
-            <button type="submit" name="update_bio">Update Bio</button>
-        </form>
+        <!-- Display User Information -->
+        <div id="userInfo">
+            <p><strong>Username:</strong> <span id="displayUsername"></span></p>
+            <p><strong>Email:</strong> <span id="displayEmail"></span></p>
+            <p><strong>Role:</strong> <span id="displayRole"></span></p>
+        </div>
 
-        <!-- Display success or error message for bio update -->
-        <?php if (isset($message)) { echo $message; } ?>
+        <!-- Form to update bio -->
+        <form id="bioForm">
+            <textarea name="bio" placeholder="Enter your bio" id="bioText"></textarea><br>
+            <button type="submit" id="updateBioButton">Update Bio</button>
+        </form>
 
         <hr>
 
         <h2>Your Information</h2>
-        <p><strong>Username:</strong> <?php echo $user['username']; ?></p>
-        <p><strong>Email:</strong> <?php echo $user['email']; ?></p>
-        <p><strong>Role:</strong> <?php echo $user['role']; ?></p>
-        <p><strong>Bio:</strong> <?php echo $bio; ?></p>
+        <p><strong>Bio:</strong> <span id="displayBio"></span></p>
 
-        <a href="make_post.php">Make a Post</a> <!-- Link to create a new post -->
-        <a href="view_posts.php">View All Posts</a> <!-- Link to view posts -->
+        <a href="make_post.php">Make a Post</a>
+        <a href="view_posts.php">View All Posts</a>
 
         <hr>
 
         <!-- Admin button (only visible to admins) -->
-        <?php if ($user['role'] == 'admin') : ?>
-            <a href="admin.php" class="admin-link">Admin Page</a>
-        <?php endif; ?>
+        <a href="admin.php" class="admin-link" id="adminLink" style="display: none;">Admin Page</a>
 
         <hr>
 
         <h2>Logout</h2>
-        <a href="logout.php">Logout</a> <!-- Logout button -->
+        <a href="logout.php">Logout</a>
     </div>
 
+    <script>
+        // Fetch user details from the correct API endpoint
+        async function getUserDetails() {
+            try {
+                const response = await fetch('/m7011e/api/user/get_user.php');
+                const data = await response.json();
+
+                if (data.success) {
+                    // Populate the user information dynamically
+                    document.getElementById('username').innerText = data.data.username;
+                    document.getElementById('displayUsername').innerText = data.data.username;
+                    document.getElementById('displayEmail').innerText = data.data.email;
+                    document.getElementById('displayRole').innerText = data.data.role;
+
+                    // If user is an admin, show admin link
+                    if (data.data.role === 'admin') {
+                        document.getElementById('adminLink').style.display = 'block';
+                    } else {
+                        document.getElementById('adminLink').style.display = 'none';
+                    }
+                } else {
+                    console.error('Error fetching user details:', data.error);
+                }
+            } catch (error) {
+                console.error('An error occurred while fetching user details:', error);
+            }
+        }
+
+        // Fetch bio from the correct API endpoint
+        async function getBio() {
+            try {
+                const response = await fetch('/m7011e/api/profile/get_bio.php');
+                const data = await response.json();
+
+                if (data.success) {
+                    // Display the bio
+                    document.getElementById('displayBio').innerText = data.data.bio;
+                    document.getElementById('bioText').value = data.data.bio; // Pre-fill bio field
+                } else {
+                    console.error('Error fetching bio:', data.error);
+                }
+            } catch (error) {
+                console.error('An error occurred while fetching bio:', error);
+            }
+        }
+
+        // Handle bio update form submission
+        document.getElementById('bioForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const bio = document.getElementById('bioText').value;
+
+            try {
+                const response = await fetch('/m7011e/api/profile/update_bio.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ bio: bio })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    document.getElementById('displayBio').innerText = bio;
+                    alert('Bio updated successfully');
+                } else {
+                    console.error('Error updating bio:', data.error);
+                    alert('Failed to update bio');
+                }
+            } catch (error) {
+                console.error('An error occurred while updating bio:', error);
+                alert('An error occurred');
+            }
+        });
+
+        // Call the functions to load the data
+        getUserDetails();
+        getBio();
+    </script>
 </body>
 </html>

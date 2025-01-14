@@ -1,5 +1,5 @@
 <?php
-// Start session
+// Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -21,8 +21,8 @@ $current_user_id = $_SESSION['user_id'];
 if (isset($_GET['post_id'])) {
     $post_id = intval($_GET['post_id']); // Sanitize input
 
-    // Fetch the post owner
-    $sql_fetch_post = "SELECT user_id FROM Posts WHERE post_id = ?";
+    // Fetch the post details (for display purposes)
+    $sql_fetch_post = "SELECT title FROM Posts WHERE post_id = ?";
     $stmt = $conn->prepare($sql_fetch_post);
     $stmt->bind_param('i', $post_id);
     $stmt->execute();
@@ -30,28 +30,62 @@ if (isset($_GET['post_id'])) {
 
     if ($result->num_rows > 0) {
         $post = $result->fetch_assoc();
-        $post_owner_id = $post['user_id'];
-
-        // Check if the current user is authorized to delete the post
-        if ($current_user_id == $post_owner_id || $user_role == 'admin' || $user_role == 'editor') {
-            // Proceed to delete the post
-            $sql_delete_post = "DELETE FROM Posts WHERE post_id = ?";
-            $stmt_delete = $conn->prepare($sql_delete_post);
-            $stmt_delete->bind_param('i', $post_id);
-
-            if ($stmt_delete->execute()) {
-                header('Location: view_posts.php?message=Post+deleted+successfully');
-                exit;
-            } else {
-                echo "Error deleting post: " . $stmt_delete->error;
-            }
-        } else {
-            echo "You are not authorized to delete this post.";
-        }
+        $post_title = htmlspecialchars($post['title']);
     } else {
         echo "Post not found.";
+        exit;
     }
 } else {
     echo "No post ID provided.";
+    exit;
 }
 ?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delete Post</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <h1>Delete Post</h1>
+    <p>Are you sure you want to delete the post titled "<strong><?php echo $post_title; ?></strong>"?</p>
+
+    <button id="delete-post-btn">Delete Post</button>
+    <p id="message"></p>
+
+    <script>
+    $(document).ready(function() {
+        $('#delete-post-btn').on('click', function() {
+            // Confirm the action
+            if (confirm('Are you sure you want to delete this post?')) {
+                // Send the AJAX request to delete the post
+                $.ajax({
+                    url: 'api/post/delete_post.php',
+                    type: 'POST',
+                    data: {
+                        post_id: <?php echo $post_id; ?>
+                    },
+                    success: function(response) {
+                        const data = JSON.parse(response);
+                        if (data.success) {
+                            $('#message').html('<span style="color: green;">' + data.success + '</span>');
+                            setTimeout(function() {
+                                window.location.href = 'view_posts.php';
+                            }, 2000); // Redirect after 2 seconds
+                        } else {
+                            $('#message').html('<span style="color: red;">' + data.error + '</span>');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        $('#message').html('<span style="color: red;">Error: ' + error + '</span>');
+                    }
+                });
+            }
+        });
+    });
+    </script>
+</body>
+</html>

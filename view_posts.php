@@ -1,46 +1,3 @@
-<?php
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Include database connection
-include('db_connection.php');
-
-// Fetch all posts
-$sql = "SELECT posts.*, users.username FROM Posts posts INNER JOIN Users users ON posts.user_id = users.user_id";
-$result = $conn->query($sql);
-
-// Function to display the "action" buttons (edit and delete)
-function displayPostActions($post_id, $user_id, $current_user_role) {
-    // Check if the current user is the author of the post or if they are an admin/editor
-    if (isset($_SESSION['user_id']) && ($_SESSION['user_id'] == $user_id || $current_user_role == 'admin' || $current_user_role == 'editor')) {
-        echo '<a href="edit_post.php?post_id=' . $post_id . '">Edit</a> | ';
-        echo '<a href="delete_post.php?post_id=' . $post_id . '" onclick="return confirm(\'Are you sure you want to delete this post?\')">Delete</a>';
-    }
-}
-
-// Function to format the timestamp
-function formatTimestamp($timestamp) {
-    return date("F j, Y, g:i a", strtotime($timestamp)); // Format: Month Day, Year, Hour:Minute am/pm
-}
-
-// Function to fetch the tags for a post
-function getPostTags($post_id, $conn) {
-    $sql_tags = "SELECT tags.tag_name FROM Post_Tags pt JOIN Tags tags ON pt.tag_id = tags.tag_id WHERE pt.post_id = ?";
-    $stmt_tags = $conn->prepare($sql_tags);
-    $stmt_tags->bind_param('i', $post_id);
-    $stmt_tags->execute();
-    $result_tags = $stmt_tags->get_result();
-
-    $tags = [];
-    while ($tag = $result_tags->fetch_assoc()) {
-        $tags[] = $tag['tag_name'];
-    }
-    return $tags;
-}
-?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -85,49 +42,56 @@ function getPostTags($post_id, $conn) {
 <body>
     <h1>View All Posts</h1>
 
-    <?php
-    // Fetch the user's role (admin/editor)
-    $user_role = $_SESSION['role'] ?? ''; // Assuming role is stored in session
-
-    // Check if there are any posts
-    if ($result->num_rows > 0) {
-        while ($row = $result->fetch_assoc()) {
-            $post_id = $row['post_id'];
-            $title = $row['title'];
-            $content = $row['content'];
-            $username = $row['username'];
-            $user_id = $row['user_id'];
-            $timestamp = $row['created_at']; // Assuming 'created_at' is the column for timestamp
-
-            // Get tags for this post
-            $tags = getPostTags($post_id, $conn);
-
-            // Display each post
-            echo '<div class="post">';
-            echo '<div class="post-title">' . htmlspecialchars($title) . '</div>';
-            echo '<div class="post-content">' . nl2br(htmlspecialchars($content)) . '</div>';
-            echo '<div class="post-author">Posted by: ' . htmlspecialchars($username) . '</div>';
-            echo '<div class="post-timestamp">Posted on: ' . formatTimestamp($timestamp) . '</div>';
-
-            // Display tags for the post
-            if (!empty($tags)) {
-                echo '<div class="tags"><strong>Tags:</strong> ' . implode(', ', $tags) . '</div>';
-            }
-
-            // Show the action row (edit/delete) only if the user is logged in and is the post owner, admin, or editor
-            if (isset($_SESSION['user_id']) && ($_SESSION['user_id'] == $user_id || $user_role == 'admin' || $user_role == 'editor')) {
-                echo '<div class="action-row">';
-                displayPostActions($post_id, $user_id, $user_role);
-                echo '</div>';
-            }
-
-            echo '</div>';
-        }
-    } else {
-        echo "<p>No posts available.</p>";
-    }
-    ?>
+    <div id="posts-container">
+        <!-- Posts will be dynamically inserted here using JavaScript -->
+    </div>
 
     <p><a href="index.php" class="link-button">Back to Home</a></p>
+
+    <script>
+        // Fetch posts from the API
+        async function fetchPosts() {
+            try {
+                const response = await fetch('api/post/get_posts.php');
+                const data = await response.json();
+
+                // Check if the request was successful
+                if (data.success) {
+                    const postsContainer = document.getElementById('posts-container');
+                    postsContainer.innerHTML = ''; // Clear any existing content
+
+                    // Iterate over the posts and create HTML elements for each post
+                    data.posts.forEach(post => {
+                        const postElement = document.createElement('div');
+                        postElement.classList.add('post');
+
+                        postElement.innerHTML = `
+                            <div class="post-title">${post.title}</div>
+                            <div class="post-content">${post.content}</div>
+                            <div class="post-author">Posted by: ${post.username}</div>
+                            <div class="post-timestamp">Posted on: ${new Date(post.created_at).toLocaleString()}</div>
+                            ${post.tags.length > 0 ? '<div class="tags"><strong>Tags:</strong> ' + post.tags.join(', ') + '</div>' : ''}
+                            ${post.current_user_can_edit || post.current_user_can_delete ? `
+                                <div class="action-row">
+                                    ${post.current_user_can_edit ? `<a href="edit_post.php?post_id=${post.post_id}">Edit</a>` : ''}
+                                    ${post.current_user_can_delete ? ` | <a href="delete_post.php?post_id=${post.post_id}" onclick="return confirm('Are you sure you want to delete this post?')">Delete</a>` : ''}
+                                </div>
+                            ` : ''}
+                        `;
+                        
+                        postsContainer.appendChild(postElement);
+                    });
+                } else {
+                    document.getElementById('posts-container').innerHTML = '<p>No posts available.</p>';
+                }
+            } catch (error) {
+                console.error('Error fetching posts:', error);
+                document.getElementById('posts-container').innerHTML = '<p>Error fetching posts.</p>';
+            }
+        }
+
+        // Call the fetchPosts function when the page loads
+        fetchPosts();
+    </script>
 </body>
 </html>
