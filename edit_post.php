@@ -43,10 +43,6 @@ while ($tag = $result_tags->fetch_assoc()) {
     $selected_tags[] = $tag['tag_id']; // Store selected tag IDs
 }
 
-// Fetch all available tags
-$sql_all_tags = "SELECT * FROM Tags";
-$result_all_tags = $conn->query($sql_all_tags);
-
 // Check if user is an admin or editor
 $user_role = $_SESSION['role']; // Assuming user role is stored in session
 $is_admin_or_editor = ($user_role == 'admin' || $user_role == 'editor');
@@ -101,18 +97,8 @@ $is_admin_or_editor = ($user_role == 'admin' || $user_role == 'editor');
     <textarea name="content" id="content" rows="6" required><?php echo htmlspecialchars($content); ?></textarea>
 
     <label for="tags">Select Tags for the Post</label>
-    <div class="tags-container">
-        <?php
-        // Display checkboxes for each available tag
-        if ($result_all_tags->num_rows > 0) {
-            while ($tag = $result_all_tags->fetch_assoc()) {
-                $checked = in_array($tag['tag_id'], $selected_tags) ? 'checked' : '';
-                echo '<label><input type="checkbox" name="tags[]" value="' . $tag['tag_id'] . '" ' . $checked . '>' . htmlspecialchars($tag['tag_name']) . '</label>';
-            }
-        } else {
-            echo "<p>No tags available.</p>";
-        }
-        ?>
+    <div class="tags-container" id="tags-container">
+        <!-- Tags will be dynamically populated here via JavaScript -->
     </div>
     
     <button type="submit" id="update-post-btn">Update Post</button>
@@ -129,8 +115,11 @@ if ($is_admin_or_editor) {
 ?>
 
 <script>
-// Handle form submission using AJAX
+// JavaScript to handle form submission via AJAX
 $(document).ready(function() {
+    // Fetch tags and pre-select the ones already associated with the post
+    fetchTags();
+
     $('#edit-post-form').on('submit', function(event) {
         event.preventDefault();
 
@@ -164,6 +153,32 @@ $(document).ready(function() {
         });
     });
 });
+
+// Fetch tags from the API and pre-select the tags associated with the post
+async function fetchTags() {
+    try {
+        const response = await fetch('api/tag/get_tag.php');
+        const data = await response.json();
+
+        const tagsContainer = document.getElementById('tags-container');
+        if (data.success) {
+            data.data.forEach(tag => {
+                const label = document.createElement('label');
+                const isChecked = <?php echo json_encode($selected_tags); ?>.includes(tag.tag_id) ? 'checked' : '';
+                label.innerHTML = `
+                    <input type="checkbox" name="tags[]" value="${tag.tag_id}" ${isChecked}>
+                    ${tag.tag_name}
+                `;
+                tagsContainer.appendChild(label);
+            });
+        } else {
+            tagsContainer.innerHTML = '<p>No tags available.</p>';
+        }
+    } catch (error) {
+        console.error('Error fetching tags:', error);
+        document.getElementById('tags-container').innerHTML = '<p>Error fetching tags. Please try again later.</p>';
+    }
+}
 </script>
 
 </body>

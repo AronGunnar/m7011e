@@ -7,9 +7,11 @@ if (session_status() === PHP_SESSION_NONE) {
 // Include database connection
 include('db_connection.php');
 
-// Fetch all available tags
-$sql_tags = "SELECT * FROM Tags";
-$result_tags = $conn->query($sql_tags);
+// Check if the user is logged in
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php'); // Redirect to login page if not logged in
+    exit;
+}
 ?>
 
 <!DOCTYPE html>
@@ -74,17 +76,8 @@ $result_tags = $conn->query($sql_tags);
     <textarea name="content" id="content" rows="6" required></textarea>
 
     <label for="tags">Select Tags for the Post</label>
-    <div class="tags-container">
-        <?php
-        // Display checkboxes for each available tag
-        if ($result_tags->num_rows > 0) {
-            while ($tag = $result_tags->fetch_assoc()) {
-                echo '<label><input type="checkbox" name="tags[]" value="' . $tag['tag_id'] . '">' . htmlspecialchars($tag['tag_name']) . '</label>';
-            }
-        } else {
-            echo "<p>No tags available.</p>";
-        }
-        ?>
+    <div class="tags-container" id="tags-container">
+        <!-- Tags will be dynamically populated here via JavaScript -->
     </div>
 
     <button type="submit" name="submit_post">Submit Post</button>
@@ -127,6 +120,34 @@ document.getElementById('create-post-form').addEventListener('submit', async fun
         document.getElementById('message-container').innerHTML = `<span class="error">Error creating post. Please try again later.</span>`;
     }
 });
+
+// JavaScript to fetch and display tags from the get_tag.php API
+async function fetchTags() {
+    try {
+        const response = await fetch('api/tag/get_tag.php');
+        const data = await response.json();
+
+        const tagsContainer = document.getElementById('tags-container');
+        if (data.success) {
+            data.data.forEach(tag => {
+                const label = document.createElement('label');
+                label.innerHTML = `
+                    <input type="checkbox" name="tags[]" value="${tag.tag_id}">
+                    ${tag.tag_name}
+                `;
+                tagsContainer.appendChild(label);
+            });
+        } else {
+            tagsContainer.innerHTML = '<p>No tags available.</p>';
+        }
+    } catch (error) {
+        console.error('Error fetching tags:', error);
+        document.getElementById('tags-container').innerHTML = '<p>Error fetching tags. Please try again later.</p>';
+    }
+}
+
+// Call fetchTags to populate the tags when the page loads
+fetchTags();
 </script>
 
 </body>

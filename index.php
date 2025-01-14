@@ -80,13 +80,7 @@ function displayUserSession() {
             <h2>Manage Posts</h2>
             <p class="description">Create, view, edit, and delete posts. Admins and editors can manage all posts, while users can only manage their own posts.</p>
             <a href="view_posts.php" class="nav-link">View All Posts</a>
-            <a href="make_post.php" class="nav-link">Create a New Post</a>
-        </div>
-
-        <div class="section">
-            <h2>Manage Tags</h2>
-            <p class="description">Add or remove tags from your posts to make them easily searchable. Admins can create and delete tags.</p>
-            <a href="view_all_data.php" class="nav-link">View All Tags</a>
+            <a href="make_post.php" class="nav-link">Create a New Post (account is needed)</a>
         </div>
 
         <div class="section">
