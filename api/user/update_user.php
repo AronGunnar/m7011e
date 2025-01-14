@@ -7,30 +7,33 @@ if (session_status() === PHP_SESSION_NONE) {
 // Include database connection
 include('../../db_connection.php');
 
-// Check if user is logged in
-if (!isset($_SESSION['user_id'])) {
-    echo json_encode(['error' => 'User not logged in']);
+// Check if user is logged in and is an admin
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+    echo json_encode(['error' => 'Only admins can update user roles']);
     exit;
 }
 
-// Check if required POST parameters are provided
-if (isset($_POST['email'], $_POST['new_password'])) {
-    $user_id = $_SESSION['user_id'];
-    $new_email = $_POST['email'];
-    $new_password = $_POST['new_password'];
+// Check if required parameters are provided
+if (isset($_POST['user_id'], $_POST['new_role'])) {
+    $user_id_to_update = intval($_POST['user_id']); // Sanitize input
+    $new_role = $_POST['new_role'];
 
-    // Hash the new password
-    $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+    // Validate role
+    $valid_roles = ['user', 'editor', 'admin'];
+    if (!in_array($new_role, $valid_roles)) {
+        echo json_encode(['error' => 'Invalid role']);
+        exit;
+    }
 
-    // Update user details in the database
-    $sql_update = "UPDATE Users SET email = ?, password = ? WHERE user_id = ?";
-    $stmt_update = $conn->prepare($sql_update);
-    $stmt_update->bind_param('ssi', $new_email, $hashed_password, $user_id);
+    // Update user role in the database
+    $sql_update_role = "UPDATE Users SET role = ? WHERE user_id = ?";
+    $stmt_update_role = $conn->prepare($sql_update_role);
+    $stmt_update_role->bind_param('si', $new_role, $user_id_to_update);
 
-    if ($stmt_update->execute()) {
-        echo json_encode(['success' => 'User profile updated successfully']);
+    if ($stmt_update_role->execute()) {
+        echo json_encode(['success' => 'User role updated successfully']);
     } else {
-        echo json_encode(['error' => 'Error updating user profile']);
+        echo json_encode(['error' => 'Error updating user role']);
     }
 } else {
     echo json_encode(['error' => 'Missing required parameters']);

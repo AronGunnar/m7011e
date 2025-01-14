@@ -9,7 +9,7 @@ $api_signup_url = "http://localhost/m7011e/api/user/register.php";
 $api_login_url = "http://localhost/m7011e/api/user/login.php";
 
 // Handle user signup via API
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['signup'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['signup'])) {
     // Collect form data
     $username = $_POST['username'];
     $email = $_POST['email'];
@@ -34,21 +34,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['signup'])) {
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
-    // Debugging Output
-    var_dump($response); // Check the raw API response
-    var_dump($http_code); // Check HTTP status code
-
     // Handle API response
+    $response_data = json_decode($response, true);
     if ($http_code === 201) {
         $signup_success = true;
     } else {
-        $response_data = json_decode($response, true);
         $signup_error = $response_data['error'] ?? 'Signup failed. Please try again.';
     }
 }
 
 // Handle user login via API
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['login'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
     // Collect form data
     $email = $_POST['email'];
     $password = $_POST['password'];
@@ -72,32 +68,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['login'])) {
     curl_close($ch);
 
     // Handle API response
-    if ($http_code === 200) {
-        $response_data = json_decode($response, true);
+    $response_data = json_decode($response, true);
+    if ($http_code === 200 && isset($response_data['success'])) {
+        // Successful login - Set session variables
+        $_SESSION['user_id'] = $response_data['user_id'];
+        $_SESSION['username'] = $response_data['username'];
+        $_SESSION['role'] = $response_data['role'];
 
-        // Check for 'success' message
-        if (isset($response_data['success'])) {
-            // Successful login - Set session variables
-            $_SESSION['user_id'] = $response_data['user_id'];
-            $_SESSION['username'] = $response_data['username'];
-            $_SESSION['role'] = $response_data['role'];
-
-            // Only output the success message (no raw data)
-            header('Location: dashboard.php');  // Redirect to the dashboard page (or another page)
-            exit;
-        } else {
-            // Show error message if login failed
-            $login_error = $response_data['error'] ?? 'Login failed. Please try again.';
-        }
+        // Redirect to dashboard
+        header('Location: dashboard.php');
+        exit;
     } else {
-        $login_error = 'Error communicating with the API.';
+        $login_error = $response_data['error'] ?? 'Login failed. Please try again.';
     }
 }
 
-
-
 // Display user session information
-function displayUserSession() {
+function displayUserSession()
+{
     if (isset($_SESSION['username'])) {
         echo '<div class="session-info">';
         echo '<p>Logged in as: ' . htmlspecialchars($_SESSION['username']) . '</p>';
@@ -204,9 +192,7 @@ function displayUserSession() {
 
         <!-- Login Form -->
         <h2>Login</h2>
-        <?php if (isset($login_success)): ?>
-            <div class="message success">Login successful! You are now logged in.</div>
-        <?php elseif (isset($login_error)): ?>
+        <?php if (isset($login_error)): ?>
             <div class="message error"><?php echo htmlspecialchars($login_error); ?></div>
         <?php endif; ?>
         <form method="POST" action="">

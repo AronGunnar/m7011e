@@ -33,13 +33,26 @@ if (isset($_POST['username'], $_POST['password'], $_POST['email'])) {
     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
     // Insert user into the Users table
-    $sql_insert = "INSERT INTO Users (username, password, email, role) VALUES (?, ?, ?, ?)";
-    $stmt_insert = $conn->prepare($sql_insert);
-    $stmt_insert->bind_param('ssss', $username, $hashed_password, $email, $role);
+    $sql_insert_user = "INSERT INTO Users (username, password, email, role) VALUES (?, ?, ?, ?)";
+    $stmt_insert_user = $conn->prepare($sql_insert_user);
+    $stmt_insert_user->bind_param('ssss', $username, $hashed_password, $email, $role);
 
-    if ($stmt_insert->execute()) {
-        http_response_code(201); // Success
-        echo json_encode(['success' => 'User registered successfully']);
+    if ($stmt_insert_user->execute()) {
+        // Get the newly created user_id
+        $new_user_id = $stmt_insert_user->insert_id;
+
+        // Create an empty profile for the new user
+        $sql_insert_profile = "INSERT INTO Profiles (user_id, bio) VALUES (?, '')";
+        $stmt_insert_profile = $conn->prepare($sql_insert_profile);
+        $stmt_insert_profile->bind_param('i', $new_user_id);
+
+        if ($stmt_insert_profile->execute()) {
+            http_response_code(201); // Success
+            echo json_encode(['success' => 'User registered successfully']);
+        } else {
+            http_response_code(500); // Internal Server Error
+            echo json_encode(['error' => 'Error creating user profile']);
+        }
     } else {
         http_response_code(500); // Internal Server Error
         echo json_encode(['error' => 'Error registering user']);
