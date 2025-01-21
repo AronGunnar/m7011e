@@ -23,4 +23,4 @@ Setup
 
 5. Access the Project<br>
     Open your browser and go to:<br>
-    http://localhost:8080/your-project-folder/index.html (or whatever your Apache port is)<br>
+    http://localhost:8080/your-project-folder/index.php (or whatever your Apache port is)<br>
