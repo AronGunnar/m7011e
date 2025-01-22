@@ -4,8 +4,14 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Include database connection
-include('../../db_connection.php');
+// Include database connection with absolute path
+include($_SERVER['DOCUMENT_ROOT'] . '/m7011e/db_connection.php'); // Update the path as needed
+
+// Check if the database connection was successful
+if (!$conn) {
+    echo json_encode(['error' => 'Database connection failed']);
+    exit;
+}
 
 // Check if the user is logged in and is an admin
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
@@ -36,7 +42,6 @@ if ($result->num_rows > 0) {
     echo json_encode(['success' => true, 'data' => $users]);
 } else {
     // Return an error if no users are found
-    echo json_encode(['error' => 'No users found']);
+    echo json_encode(['success' => false, 'error' => 'No users found']);
 }
-
 ?>

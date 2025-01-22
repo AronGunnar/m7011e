@@ -1,16 +1,6 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-// Display user session information with a plain text "Dashboard" link
-function displayUserSession() {
-    if (isset($_SESSION['username'])) {
-        echo '<div style="position: fixed; top: 10px; right: 10px; text-align: right;">';
-        echo '<p style="margin: 0;">Logged in as: ' . htmlspecialchars($_SESSION['username']) . '</p>';
-        echo '<a href="dashboard.php" style="text-decoration: none; color: black;">Dashboard</a>';
-        echo '</div>';
-    }
-}
+// Include database connection
+include('db_connection.php');
 ?>
 
 <!DOCTYPE html>
@@ -18,82 +8,236 @@ function displayUserSession() {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to My Post Management System</title>
+    <title>Database Overview</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
-            line-height: 1.6;
-            margin: 0;
-            padding: 0;
         }
-        h1 {
-            color: #333;
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
         }
         .container {
-            padding: 20px;
-            max-width: 800px;
+            max-width: 1200px;
             margin: 0 auto;
+            padding: 20px;
         }
-        .link-button {
-            text-decoration: none;
-            color: #4CAF50;
-            font-weight: bold;
-        }
-        .link-button:hover {
-            text-decoration: underline;
-        }
-        .section {
-            margin-bottom: 30px;
-        }
-        .nav-link {
-            display: block;
-            font-size: 18px;
-            margin-bottom: 10px;
-        }
-        .description {
-            font-size: 16px;
-            margin-top: 5px;
-            color: #555;
-        }
-        .home-link {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            font-size: 18px;
-            font-weight: bold;
-            text-decoration: none;
-            color: black;
+        h1 {
+            text-align: center;
         }
     </style>
 </head>
 <body>
-    <?php displayUserSession(); ?>
-    <div class="home-link">
-        <a href="index.php" style="text-decoration: none; color: black;">Home</a>
-    </div>    
-
     <div class="container">
-        <h1>Welcome to My Post Management System</h1>
-        <p>Manage your posts, tags, and user roles easily with this platform. Whether you're an admin, editor, or a regular user, you can interact with the site in different ways.</p>
+        <h1>Database Overview</h1>
 
-        <div class="section">
-            <h2>Manage Posts</h2>
-            <p class="description">Create, view, edit, and delete posts. Admins and editors can manage all posts, while users can only manage their own posts.</p>
-            <a href="view_posts.php" class="nav-link">View All Posts</a>
-            <a href="make_post.php" class="nav-link">Create a New Post (account is needed)</a>
-        </div>
+        <!-- Users Table -->
+        <h2>Users</h2>
+        <table id="users-table">
+            <thead>
+                <tr>
+                    <th>User ID</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- User data will be inserted here -->
+            </tbody>
+        </table>
 
-        <div class="section">
-            <h2>User Roles and Permissions</h2>
-            <p class="description">Admins and editors have special permissions to edit and delete posts from other users. Regular users can only manage their own posts.</p>
-        </div>
+        <!-- Profiles Table -->
+        <h2>Profiles</h2>
+        <table id="profiles-table">
+            <thead>
+                <tr>
+                    <th>Profile ID</th>
+                    <th>User ID</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Bio</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Profile data will be inserted here -->
+            </tbody>
+        </table>
 
-        <div class="section">
-            <h2>Login / Sign Up</h2>
-            <p class="description">Log in or sign up to start managing posts and tags. Admins and editors can perform additional tasks.</p>
-            <a href="login.php" class="nav-link">Login / Sign Up</a>
-        </div>
+        <!-- Posts Table -->
+        <h2>Posts</h2>
+        <table id="posts-table">
+            <thead>
+                <tr>
+                    <th>Post ID</th>
+                    <th>Title</th>
+                    <th>Content</th>
+                    <th>Author</th>
+                    <th>Created At</th>
+                    <th>Tags</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Posts data will be inserted here -->
+            </tbody>
+        </table>
+
+        <!-- Tags Table -->
+        <h2>Tags</h2>
+        <table id="tags-table">
+            <thead>
+                <tr>
+                    <th>Tag ID</th>
+                    <th>Tag Name</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Tags data will be inserted here -->
+            </tbody>
+        </table>
     </div>
 
+    <script>
+        $(document).ready(function() {
+            // Fetch and display users
+            fetchUsers();
+
+            // Fetch and display profiles
+            fetchProfiles();
+
+            // Fetch and display posts
+            fetchPosts();
+
+            // Fetch and display tags
+            fetchTags();
+        });
+
+        function fetchUsers() {
+            $.ajax({
+                url: 'api/user/get_all_user.php', // Path to your get all users API
+                method: 'GET',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        const usersTable = $('#users-table tbody');
+                        usersTable.empty(); // Clear the table
+                        response.data.forEach(user => {
+                            usersTable.append(`
+                                <tr>
+                                    <td>${user.user_id}</td>
+                                    <td>${user.username}</td>
+                                    <td>${user.email}</td>
+                                    <td>${user.role}</td>
+                                </tr>
+                            `);
+                        });
+                    } else {
+                        alert('Error fetching users: ' + response.error);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    alert('Error: ' + error);
+                }
+            });
+        }
+
+        function fetchProfiles() {
+            $.ajax({
+                url: 'api/profile/get_all_bios.php', // Path to your get all profiles API
+                method: 'GET',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        const profilesTable = $('#profiles-table tbody');
+                        profilesTable.empty(); // Clear the table
+                        response.data.forEach(profile => {
+                            profilesTable.append(`
+                                <tr>
+                                    <td>${profile.profile_id}</td>
+                                    <td>${profile.user_id}</td>
+                                    <td>${profile.username}</td>
+                                    <td>${profile.email}</td>
+                                    <td>${profile.bio}</td>
+                                </tr>
+                            `);
+                        });
+                    } else {
+                        alert('Error fetching profiles: ' + response.error);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    alert('Error: ' + error);
+                }
+            });
+        }
+
+        function fetchPosts() {
+            $.ajax({
+                url: 'api/post/get_posts.php', // Path to your get all posts API
+                method: 'GET',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        const postsTable = $('#posts-table tbody');
+                        postsTable.empty(); // Clear the table
+                        response.posts.forEach(post => {
+                            postsTable.append(`
+                                <tr>
+                                    <td>${post.post_id}</td>
+                                    <td>${post.title}</td>
+                                    <td>${post.content}</td>
+                                    <td>${post.username}</td>
+                                    <td>${post.created_at}</td>
+                                    <td>${post.tags.join(', ')}</td>
+                                </tr>
+                            `);
+                        });
+                    } else {
+                        alert('Error fetching posts: ' + response.error);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    alert('Error: ' + error);
+                }
+            });
+        }
+
+        function fetchTags() {
+            $.ajax({
+                url: 'api/tag/get_all_tags.php', // Path to your get all tags API
+                method: 'GET',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        const tagsTable = $('#tags-table tbody');
+                        tagsTable.empty(); // Clear the table
+                        response.data.forEach(tag => {
+                            tagsTable.append(`
+                                <tr>
+                                    <td>${tag.tag_id}</td>
+                                    <td>${tag.tag_name}</td>
+                                </tr>
+                            `);
+                        });
+                    } else {
+                        alert('Error fetching tags: ' + response.error);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    alert('Error: ' + error);
+                }
+            });
+        }
+    </script>
 </body>
 </html>
