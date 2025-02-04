@@ -1,12 +1,6 @@
 <?php
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+// Clear the JWT token by setting its expiry time to a past time
+setcookie('token', '', time() - 3600, '/', '', false, true);
 
-// Destroy the session and redirect to the login/signup page
-session_unset(); // Unset all session variables
-session_destroy(); // Destroy the session
-header('Location: login.php');
-exit;
+echo json_encode(['success' => true, 'message' => 'Logged out successfully']);
 ?>

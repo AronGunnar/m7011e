@@ -1,42 +1,59 @@
 <?php
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Include database connection
+// Include necessary files
 include('../../db_connection.php');
+include('../auth.php'); // Include auth.php for JWT validation
 
-// Check if the user is logged in and is an admin
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    echo json_encode(['error' => 'Access denied: Admins only']);
-    exit;
-}
+// Set response header to JSON
+header('Content-Type: application/json');
 
-// SQL query to fetch all user data
-$sql = "SELECT user_id, username, email, role FROM Users";
-$result = $conn->query($sql);
+try {
+    // Validate the JWT token
+    $user = validate_jwt();
 
-// Check if there are users
-if ($result->num_rows > 0) {
-    // Create an array to hold all user data
-    $users = [];
-
-    // Fetch each user and add to the array
-    while ($row = $result->fetch_assoc()) {
-        $users[] = [
-            'user_id' => $row['user_id'],
-            'username' => $row['username'],
-            'email' => $row['email'],
-            'role' => $row['role']
-        ];
+    // If the token is invalid or expired
+    if (!$user) {
+        http_response_code(401); // Unauthorized
+        echo json_encode(['error' => 'Access denied: Unauthorized']);
+        exit;
     }
 
-    // Return the user data as JSON
-    echo json_encode(['success' => true, 'data' => $users]);
-} else {
-    // Return an error if no users are found
-    echo json_encode(['error' => 'No users found']);
-}
+    // Check if the user has admin privileges
+    if ($user->role !== 'admin') {
+        http_response_code(403); // Forbidden
+        echo json_encode(['error' => 'Access denied: Admins only']);
+        exit;
+    }
 
+    // Fetch all user data from the database
+    $sql = "SELECT user_id, username, email, role FROM Users";
+    $result = $conn->query($sql);
+
+    if ($result === false) {
+        throw new Exception('Database query failed');
+    }
+
+    // Check if there are users
+    if ($result->num_rows > 0) {
+        $users = [];
+        while ($row = $result->fetch_assoc()) {
+            $users[] = [
+                'user_id' => $row['user_id'],
+                'username' => $row['username'],
+                'email' => $row['email'],
+                'role' => $row['role']
+            ];
+        }
+
+        // Return the user data as JSON
+        http_response_code(200); // OK
+        echo json_encode(['success' => true, 'data' => $users]);
+    } else {
+        http_response_code(404); // Not Found
+        echo json_encode(['error' => 'No users found']);
+    }
+} catch (Exception $e) {
+    // Handle any unexpected errors
+    http_response_code(500); // Internal Server Error
+    echo json_encode(['error' => 'An error occurred: ' . $e->getMessage()]);
+}
 ?>

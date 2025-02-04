@@ -5,7 +5,7 @@ $username = "m7011e_recalltea";    // Your MySQL username
 $password = "db08c1af076bb0f865adc178705b4ed4c8318e4c";  // Your MySQL password
 $dbname = "m7011e_recalltea";      // Your database name
 
-// Create a connection to the MySQL database
+// Create a connection to the MySQL database using mysqli
 $conn = new mysqli($servername, $username, $password, $dbname);
 
 // Check the connection

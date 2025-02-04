@@ -1,56 +1,72 @@
 <?php
-// Start session
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Include database connection
+// Include necessary files
 include('../../db_connection.php');
+include('../auth.php'); // Include auth.php for JWT validation
 
-// Check if user is logged in
-if (!isset($_SESSION['user_id'])) {
-    echo json_encode(['error' => 'User not logged in']);
+// Set response header
+header('Content-Type: application/json');
+
+// Validate JWT token
+$user = validate_jwt();
+if (!$user) {
+    http_response_code(401);
+    echo json_encode(['error' => 'Unauthorized: Invalid or expired token']);
     exit;
 }
 
-// Fetch the current user role
-$user_role = $_SESSION['role'] ?? '';
-$current_user_id = $_SESSION['user_id'];
+// Get user data from token
+$user_id = $user->user_id;
+$user_role = $user->role;
 
-// Check if post_id is provided
-if (isset($_POST['post_id'])) {
-    $post_id = intval($_POST['post_id']); // Sanitize input
+// Check if request method is DELETE
+if ($_SERVER['REQUEST_METHOD'] !== 'DELETE') {
+    http_response_code(405); // Method Not Allowed
+    echo json_encode(['error' => 'Invalid request method']);
+    exit;
+}
 
-    // Fetch the post owner
-    $sql_fetch_post = "SELECT user_id FROM Posts WHERE post_id = ?";
-    $stmt = $conn->prepare($sql_fetch_post);
-    $stmt->bind_param('i', $post_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
+// Read the raw DELETE request body
+$data = json_decode(file_get_contents("php://input"), true);
+if (!isset($data['post_id'])) {
+    http_response_code(400); // Bad Request
+    echo json_encode(['error' => 'Post ID is required']);
+    exit;
+}
 
-    if ($result->num_rows > 0) {
-        $post = $result->fetch_assoc();
-        $post_owner_id = $post['user_id'];
+$post_id = intval($data['post_id']); // Sanitize input
 
-        // Check if the current user is authorized to delete the post
-        if ($current_user_id == $post_owner_id || $user_role == 'admin' || $user_role == 'editor') {
-            // Proceed to delete the post
-            $sql_delete_post = "DELETE FROM Posts WHERE post_id = ?";
-            $stmt_delete = $conn->prepare($sql_delete_post);
-            $stmt_delete->bind_param('i', $post_id);
+// Fetch the post owner
+$sql_fetch_post = "SELECT user_id FROM Posts WHERE post_id = ?";
+$stmt = $conn->prepare($sql_fetch_post);
+$stmt->bind_param('i', $post_id);
+$stmt->execute();
+$result = $stmt->get_result();
 
-            if ($stmt_delete->execute()) {
-                echo json_encode(['success' => 'Post deleted successfully']);
-            } else {
-                echo json_encode(['error' => 'Error deleting post']);
-            }
-        } else {
-            echo json_encode(['error' => 'Unauthorized to delete this post']);
-        }
+if ($result->num_rows === 0) {
+    http_response_code(404); // Not Found
+    echo json_encode(['error' => 'Post not found']);
+    exit;
+}
+
+$post = $result->fetch_assoc();
+$post_owner_id = $post['user_id'];
+
+// Check if the user is allowed to delete the post
+if ($user_id === $post_owner_id || $user_role === 'admin' || $user_role === 'editor') {
+    // Proceed to delete the post
+    $sql_delete_post = "DELETE FROM Posts WHERE post_id = ?";
+    $stmt_delete = $conn->prepare($sql_delete_post);
+    $stmt_delete->bind_param('i', $post_id);
+
+    if ($stmt_delete->execute()) {
+        http_response_code(200); // OK
+        echo json_encode(['success' => 'Post deleted successfully']);
     } else {
-        echo json_encode(['error' => 'Post not found']);
+        http_response_code(500); // Internal Server Error
+        echo json_encode(['error' => 'Error deleting post']);
     }
 } else {
-    echo json_encode(['error' => 'No post ID provided']);
+    http_response_code(403); // Forbidden
+    echo json_encode(['error' => 'You are not authorized to delete this post']);
 }
 ?>

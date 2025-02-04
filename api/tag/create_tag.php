@@ -1,39 +1,59 @@
 <?php
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Include database connection
+// Include necessary files
 include('../../db_connection.php');
+include('../auth.php'); // Include auth.php for JWT validation
 
-// Check if the user is an admin
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    echo json_encode(['error' => 'Unauthorized access']);
+// Set response header
+header('Content-Type: application/json');
+
+// Validate JWT token
+$user = validate_jwt();
+if (!$user) {
+    http_response_code(401); // Unauthorized
+    echo json_encode(['error' => 'Unauthorized: Invalid or expired token']);
     exit;
 }
 
-// Check if tag name is provided in the POST request
-if (isset($_POST['tag_name'])) {
-    $tag_name = $_POST['tag_name'];
+// Check if the user has admin privileges
+if ($user->role !== 'admin') {
+    http_response_code(403); // Forbidden
+    echo json_encode(['error' => 'Only admins can create tags']);
+    exit;
+}
 
-    // Validate tag name (you can add more validation checks here)
-    if (empty($tag_name)) {
-        echo json_encode(['error' => 'Tag name is required']);
-        exit;
-    }
+// Check if request method is POST
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Check if tag_name is provided
+    $data = json_decode(file_get_contents('php://input'), true); // Decode the incoming JSON data
 
-    // Insert the tag into the database
-    $sql_insert_tag = "INSERT INTO Tags (tag_name) VALUES (?)";
-    $stmt_insert_tag = $conn->prepare($sql_insert_tag);
-    $stmt_insert_tag->bind_param('s', $tag_name);
+    if (isset($data['tag_name'])) {
+        $tag_name = $data['tag_name'];
 
-    if ($stmt_insert_tag->execute()) {
-        echo json_encode(['success' => 'Tag created successfully']);
+        // Validate tag name
+        if (empty($tag_name)) {
+            http_response_code(400); // Bad Request
+            echo json_encode(['error' => 'Tag name is required']);
+            exit;
+        }
+
+        // Insert the tag into the database
+        $sql_insert_tag = "INSERT INTO Tags (tag_name) VALUES (?)";
+        $stmt_insert_tag = $conn->prepare($sql_insert_tag);
+        $stmt_insert_tag->bind_param('s', $tag_name);
+
+        if ($stmt_insert_tag->execute()) {
+            http_response_code(201); // Created
+            echo json_encode(['success' => 'Tag created successfully']);
+        } else {
+            http_response_code(500); // Internal Server Error
+            echo json_encode(['error' => 'Failed to create tag']);
+        }
     } else {
-        echo json_encode(['error' => 'Failed to create tag']);
+        http_response_code(400); // Bad Request
+        echo json_encode(['error' => 'Tag name parameter missing']);
     }
 } else {
-    echo json_encode(['error' => 'Tag name parameter missing']);
+    http_response_code(405); // Method Not Allowed
+    echo json_encode(['error' => 'Incorrect request method, expected POST']);
 }
 ?>

@@ -1,73 +1,106 @@
 <?php
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Include database connection
+// Include necessary files
 include('../../db_connection.php');
+include('../auth.php');
 
-// Check if user is logged in
-if (!isset($_SESSION['user_id'])) {
-    echo json_encode(['error' => 'User not logged in']);
+// Validate JWT token
+$user_data = validate_jwt();
+if (!$user_data) {
+    http_response_code(401);
+    echo json_encode(['error' => 'Unauthorized: Missing or invalid token']);
     exit;
 }
 
-// Fetch the current user role
-$user_role = $_SESSION['role'] ?? '';
-$current_user_id = $_SESSION['user_id'];
-
-// Check if post_id and new data are provided
-if (isset($_POST['post_id'], $_POST['title'], $_POST['content'])) {
-    $post_id = intval($_POST['post_id']); // Sanitize input
-    $new_title = $_POST['title'];
-    $new_content = $_POST['content'];
-    $new_selected_tags = $_POST['tags'] ?? [];
-
-    // Fetch the post owner
-    $sql_fetch_post = "SELECT user_id FROM Posts WHERE post_id = ?";
-    $stmt = $conn->prepare($sql_fetch_post);
-    $stmt->bind_param('i', $post_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if ($result->num_rows > 0) {
-        $post = $result->fetch_assoc();
-        $post_owner_id = $post['user_id'];
-
-        // Check if the current user is authorized to edit the post
-        if ($current_user_id == $post_owner_id || $user_role == 'admin' || $user_role == 'editor') {
-            // Update the post in the Posts table
-            $sql_update_post = "UPDATE Posts SET title = ?, content = ? WHERE post_id = ?";
-            $stmt_update = $conn->prepare($sql_update_post);
-            $stmt_update->bind_param('ssi', $new_title, $new_content, $post_id);
-
-            if ($stmt_update->execute()) {
-                // Delete old tags for this post
-                $sql_delete_tags = "DELETE FROM Post_Tags WHERE post_id = ?";
-                $stmt_delete = $conn->prepare($sql_delete_tags);
-                $stmt_delete->bind_param('i', $post_id);
-                $stmt_delete->execute();
-
-                // Insert new tags into the Post_Tags table
-                foreach ($new_selected_tags as $tag_id) {
-                    $sql_insert_tag = "INSERT INTO Post_Tags (post_id, tag_id) VALUES (?, ?)";
-                    $stmt_insert_tag = $conn->prepare($sql_insert_tag);
-                    $stmt_insert_tag->bind_param('ii', $post_id, $tag_id);
-                    $stmt_insert_tag->execute();
-                }
-
-                echo json_encode(['success' => 'Post updated successfully']);
-            } else {
-                echo json_encode(['error' => 'Error updating post']);
-            }
-        } else {
-            echo json_encode(['error' => 'Unauthorized to edit this post']);
-        }
-    } else {
-        echo json_encode(['error' => 'Post not found']);
-    }
-} else {
-    echo json_encode(['error' => 'Missing required parameters']);
+// Check if the request method is PATCH
+if ($_SERVER['REQUEST_METHOD'] !== 'PATCH') {
+    http_response_code(405); // Method Not Allowed
+    echo json_encode(['error' => 'Invalid request method. Use PATCH.']);
+    exit;
 }
+
+// Read raw input data
+$data = json_decode(file_get_contents('php://input'), true);
+
+// Get post ID
+$post_id = $data['post_id'] ?? null;
+
+if (!$post_id) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Post ID is required']);
+    exit;
+}
+
+// Fetch the post owner from the database
+$sql_owner = "SELECT user_id FROM Posts WHERE post_id = ?";
+$stmt_owner = $conn->prepare($sql_owner);
+$stmt_owner->bind_param('i', $post_id);
+$stmt_owner->execute();
+$result_owner = $stmt_owner->get_result();
+
+if ($result_owner->num_rows === 0) {
+    http_response_code(404);
+    echo json_encode(['error' => 'Post not found']);
+    exit;
+}
+
+$post_owner = $result_owner->fetch_assoc()['user_id'];
+
+// Check if the user is the post owner or has admin/editor role
+if ($user_data->user_id != $post_owner && $user_data->role !== 'admin' && $user_data->role !== 'editor') {
+    http_response_code(403);
+    echo json_encode(['error' => 'Access denied: Insufficient permissions']);
+    exit;
+}
+
+// Prepare dynamic SQL updates
+$update_fields = [];
+$params = [];
+$types = '';
+
+if (!empty($data['title'])) {
+    $update_fields[] = "title = ?";
+    $params[] = $data['title'];
+    $types .= 's';
+}
+
+if (!empty($data['content'])) {
+    $update_fields[] = "content = ?";
+    $params[] = $data['content'];
+    $types .= 's';
+}
+
+if (empty($update_fields) && !isset($data['tags'])) {
+    http_response_code(400);
+    echo json_encode(['error' => 'No fields provided for update']);
+    exit;
+}
+
+// Update post title/content if needed
+if (!empty($update_fields)) {
+    $sql_update = "UPDATE Posts SET " . implode(', ', $update_fields) . " WHERE post_id = ?";
+    $params[] = $post_id;
+    $types .= 'i';
+
+    $stmt_update = $conn->prepare($sql_update);
+    $stmt_update->bind_param($types, ...$params);
+    $stmt_update->execute();
+}
+
+// Update tags if provided
+if (isset($data['tags']) && is_array($data['tags'])) {
+    $sql_delete = "DELETE FROM Post_Tags WHERE post_id = ?";
+    $stmt_delete = $conn->prepare($sql_delete);
+    $stmt_delete->bind_param('i', $post_id);
+    $stmt_delete->execute();
+
+    foreach ($data['tags'] as $tag_id) {
+        $sql_tag = "INSERT INTO Post_Tags (post_id, tag_id) VALUES (?, ?)";
+        $stmt_tag = $conn->prepare($sql_tag);
+        $stmt_tag->bind_param('ii', $post_id, $tag_id);
+        $stmt_tag->execute();
+    }
+}
+
+http_response_code(200);
+echo json_encode(['success' => 'Post updated successfully']);
 ?>

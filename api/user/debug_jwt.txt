@@ -1,0 +1,7 @@
+Array
+(
+    [user_id] => 4
+    [email] => c@gmail.com
+    [role] => admin
+    [exp] => 1738316915
+)
