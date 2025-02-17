@@ -86,8 +86,27 @@ if (!empty($update_fields)) {
     $stmt_update->execute();
 }
 
-// Update tags if provided
+// Validate tags before updating
 if (isset($data['tags']) && is_array($data['tags'])) {
+    foreach ($data['tags'] as $tag_id) {
+        // Check if tag exists in Tags table
+        $sql_check_tag = "SELECT COUNT(*) FROM Tags WHERE tag_id = ?";
+        $stmt_check_tag = $conn->prepare($sql_check_tag);
+        $stmt_check_tag->bind_param('i', $tag_id);
+        $stmt_check_tag->execute();
+        $stmt_check_tag->bind_result($tag_count);
+        $stmt_check_tag->fetch();
+        $stmt_check_tag->close();
+
+        if ($tag_count == 0) {
+            // If tag does not exist, return error and stop further processing
+            http_response_code(400);
+            echo json_encode(['error' => "Tag ID $tag_id does not exist"]);
+            exit;
+        }
+    }
+
+    // Delete existing tags and insert new ones
     $sql_delete = "DELETE FROM Post_Tags WHERE post_id = ?";
     $stmt_delete = $conn->prepare($sql_delete);
     $stmt_delete->bind_param('i', $post_id);
