@@ -3,34 +3,32 @@
 include('../../db_connection.php');
 include('../auth.php');
 
-// Validate JWT token
+// Validate JWT
 $user_data = validate_jwt();
 if (!$user_data) {
-    http_response_code(401);
+    http_response_code(401); // Unauthorized
     echo json_encode(['error' => 'Unauthorized: Missing or invalid token']);
     exit;
 }
 
-// Check if the request method is PATCH
 if ($_SERVER['REQUEST_METHOD'] !== 'PATCH') {
     http_response_code(405); // Method Not Allowed
     echo json_encode(['error' => 'Invalid request method. Use PATCH.']);
     exit;
 }
 
-// Read raw input data
 $data = json_decode(file_get_contents('php://input'), true);
 
 // Get post ID
 $post_id = $data['post_id'] ?? null;
 
 if (!$post_id) {
-    http_response_code(400);
+    http_response_code(400); // Bad Request
     echo json_encode(['error' => 'Post ID is required']);
     exit;
 }
 
-// Fetch the post owner from the database
+// Fetch posts (owner)
 $sql_owner = "SELECT user_id FROM Posts WHERE post_id = ?";
 $stmt_owner = $conn->prepare($sql_owner);
 $stmt_owner->bind_param('i', $post_id);
@@ -38,21 +36,20 @@ $stmt_owner->execute();
 $result_owner = $stmt_owner->get_result();
 
 if ($result_owner->num_rows === 0) {
-    http_response_code(404);
+    http_response_code(404); // Not Found
     echo json_encode(['error' => 'Post not found']);
     exit;
 }
 
 $post_owner = $result_owner->fetch_assoc()['user_id'];
 
-// Check if the user is the post owner or has admin/editor role
+// check perms
 if ($user_data->user_id != $post_owner && $user_data->role !== 'admin' && $user_data->role !== 'editor') {
-    http_response_code(403);
+    http_response_code(403); // Forbidden
     echo json_encode(['error' => 'Access denied: Insufficient permissions']);
     exit;
 }
 
-// Prepare dynamic SQL updates
 $update_fields = [];
 $params = [];
 $types = '';
@@ -86,7 +83,7 @@ if (!empty($update_fields)) {
     $stmt_update->execute();
 }
 
-// Update tags if provided
+// Update tags if needed
 if (isset($data['tags']) && is_array($data['tags'])) {
     $sql_delete = "DELETE FROM Post_Tags WHERE post_id = ?";
     $stmt_delete = $conn->prepare($sql_delete);
@@ -101,6 +98,6 @@ if (isset($data['tags']) && is_array($data['tags'])) {
     }
 }
 
-http_response_code(200);
+http_response_code(200); // OK
 echo json_encode(['success' => 'Post updated successfully']);
 ?>

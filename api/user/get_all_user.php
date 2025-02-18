@@ -1,30 +1,27 @@
 <?php
 // Include necessary files
 include('../../db_connection.php');
-include('../auth.php'); // Include auth.php for JWT validation
+include('../auth.php');
 
-// Set response header to JSON
 header('Content-Type: application/json');
 
 try {
     // Validate the JWT token
     $user = validate_jwt();
 
-    // If the token is invalid or expired
     if (!$user) {
         http_response_code(401); // Unauthorized
         echo json_encode(['error' => 'Access denied: Unauthorized']);
         exit;
     }
 
-    // Check if the user has admin privileges
+    // Authorization check
     if ($user->role !== 'admin') {
         http_response_code(403); // Forbidden
         echo json_encode(['error' => 'Access denied: Admins only']);
         exit;
     }
 
-    // Fetch all user data from the database
     $sql = "SELECT user_id, username, email, role FROM Users";
     $result = $conn->query($sql);
 
@@ -32,7 +29,7 @@ try {
         throw new Exception('Database query failed');
     }
 
-    // Check if there are users
+    // Check if there are usrs
     if ($result->num_rows > 0) {
         $users = [];
         while ($row = $result->fetch_assoc()) {
@@ -44,7 +41,7 @@ try {
             ];
         }
 
-        // Return the user data as JSON
+        // Return data as JSON
         http_response_code(200); // OK
         echo json_encode(['success' => true, 'data' => $users]);
     } else {
@@ -52,7 +49,6 @@ try {
         echo json_encode(['error' => 'No users found']);
     }
 } catch (Exception $e) {
-    // Handle any unexpected errors
     http_response_code(500); // Internal Server Error
     echo json_encode(['error' => 'An error occurred: ' . $e->getMessage()]);
 }

@@ -1,4 +1,5 @@
 <?php
+// this is only used to view all data to check if the apis work 
 
 // Include database connection
 include('db_connection.php');

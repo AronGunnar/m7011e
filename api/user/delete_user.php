@@ -1,9 +1,8 @@
 <?php
 // Include necessary files
 include('../../db_connection.php');
-include('../auth.php'); // Include auth.php for JWT validation
+include('../auth.php');
 
-// Set response header
 header('Content-Type: application/json');
 
 // Validate JWT token
@@ -14,16 +13,14 @@ if (!$user) {
     exit;
 }
 
-// Check if the user has admin privileges
+// Authorization check
 if ($user->role !== 'admin') {
     http_response_code(403); // Forbidden
     echo json_encode(['error' => 'Only admins can delete users']);
     exit;
 }
 
-// Check if request method is DELETE
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
-    // Retrieve user_id from the JSON body
     $data = json_decode(file_get_contents('php://input'), true);
     
     // Ensure user_id is provided
@@ -33,9 +30,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
         exit;
     }
 
-    $user_id_to_delete = intval($data['user_id']); // Sanitize input
+    $user_id_to_delete = intval($data['user_id']);
 
-    // Check if the user exists
+    // Check is the user exists
     $sql_check_user = "SELECT user_id FROM Users WHERE user_id = ?";
     $stmt_check_user = $conn->prepare($sql_check_user);
     $stmt_check_user->bind_param('i', $user_id_to_delete);
@@ -48,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
         exit;
     }
 
-    // Proceed to delete the user
+    //  delete user
     $sql_delete_user = "DELETE FROM Users WHERE user_id = ?";
     $stmt_delete = $conn->prepare($sql_delete_user);
     $stmt_delete->bind_param('i', $user_id_to_delete);

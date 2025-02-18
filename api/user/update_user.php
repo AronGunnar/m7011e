@@ -1,9 +1,8 @@
 <?php
 // Include necessary files
 include('../../db_connection.php');
-include('../auth.php'); // Include auth.php for JWT validation
+include('../auth.php');
 
-// Set response header
 header('Content-Type: application/json');
 
 // Validate JWT token
@@ -14,20 +13,18 @@ if (!$user) {
     exit;
 }
 
-// Check if the user has admin privileges
+// Authorization check
 if ($user->role !== 'admin') {
     http_response_code(403); // Forbidden
     echo json_encode(['error' => 'Only admins can update user roles']);
     exit;
 }
 
-// Check if request method is POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Check if required parameters are provided
-    $data = json_decode(file_get_contents('php://input'), true); // Decode the incoming JSON data
+    $data = json_decode(file_get_contents('php://input'), true);
 
     if (isset($data['user_id'], $data['new_role'])) {
-        $user_id_to_update = intval($data['user_id']); // Sanitize input
+        $user_id_to_update = intval($data['user_id']);
         $new_role = $data['new_role'];
 
         // Validate role
@@ -38,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        // Update user role in the database
+        // Update user role
         $sql_update_role = "UPDATE Users SET role = ? WHERE user_id = ?";
         $stmt_update_role = $conn->prepare($sql_update_role);
         $stmt_update_role->bind_param('si', $new_role, $user_id_to_update);

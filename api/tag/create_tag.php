@@ -1,9 +1,8 @@
 <?php
 // Include necessary files
 include('../../db_connection.php');
-include('../auth.php'); // Include auth.php for JWT validation
+include('../auth.php');
 
-// Set response header
 header('Content-Type: application/json');
 
 // Validate JWT token
@@ -14,29 +13,27 @@ if (!$user) {
     exit;
 }
 
-// Check if the user has admin privileges
+// Authorization check
 if ($user->role !== 'admin') {
     http_response_code(403); // Forbidden
     echo json_encode(['error' => 'Only admins can create tags']);
     exit;
 }
 
-// Check if request method is POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Check if tag_name is provided
-    $data = json_decode(file_get_contents('php://input'), true); // Decode the incoming JSON data
+    $data = json_decode(file_get_contents('php://input'), true);
 
     if (isset($data['tag_name'])) {
         $tag_name = $data['tag_name'];
 
-        // Validate tag name
+        // Validation
         if (empty($tag_name)) {
             http_response_code(400); // Bad Request
             echo json_encode(['error' => 'Tag name is required']);
             exit;
         }
 
-        // Insert the tag into the database
         $sql_insert_tag = "INSERT INTO Tags (tag_name) VALUES (?)";
         $stmt_insert_tag = $conn->prepare($sql_insert_tag);
         $stmt_insert_tag->bind_param('s', $tag_name);

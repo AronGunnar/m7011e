@@ -1,11 +1,9 @@
 <?php
-// Set content type to JSON
+// Include necessary files (what?)
 header('Content-Type: application/json');
-
-// Include database connection
 include($_SERVER['DOCUMENT_ROOT'] . '/m7011e/db_connection.php');
 
-// Function to fetch tags for a post
+// For fetch tags for a post
 function getTagsForPost($post_id, $conn) {
     $sql_tags = "SELECT tags.tag_name FROM Post_Tags pt 
                  JOIN Tags tags ON pt.tag_id = tags.tag_id 
@@ -23,7 +21,7 @@ function getTagsForPost($post_id, $conn) {
 }
 
 try {
-    // Fetch all posts along with their author information
+    // Fetch all posts with info
     $sql = "SELECT posts.post_id, posts.title, posts.content, posts.created_at, 
                    users.username, posts.user_id
             FROM Posts posts 
@@ -58,7 +56,6 @@ try {
         exit;
     }
 
-    // Send success response
     http_response_code(200); // OK
     echo json_encode(['success' => true, 'posts' => $posts]);
 } catch (Exception $e) {

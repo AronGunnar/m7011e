@@ -1,7 +1,6 @@
 <?php
 include('../../db_connection.php');
 
-// Fetch tags from the database
 $sql = "SELECT tag_id, tag_name FROM Tags";
 $result = $conn->query($sql);
 

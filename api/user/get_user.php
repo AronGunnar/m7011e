@@ -1,9 +1,8 @@
 <?php
 // Include necessary files
 include('../../db_connection.php');
-include('../auth.php'); // Use auth.php for JWT functions
+include('../auth.php');
 
-// Set content type to JSON
 header('Content-Type: application/json');
 
 // Validate the JWT token
@@ -16,10 +15,9 @@ if (!$user) {
     exit;
 }
 
-// Get user ID from the decoded JWT token
 $user_id = $user->user_id;
 
-// Fetch user details from the database
+// Fetch user details
 $sql_user = "SELECT username, email, role FROM Users WHERE user_id = ?";
 $stmt_user = $conn->prepare($sql_user);
 $stmt_user->bind_param('i', $user_id);

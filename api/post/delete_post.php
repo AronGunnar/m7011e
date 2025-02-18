@@ -1,31 +1,29 @@
 <?php
 // Include necessary files
 include('../../db_connection.php');
-include('../auth.php'); // Include auth.php for JWT validation
+include('../auth.php');
 
 // Set response header
 header('Content-Type: application/json');
 
-// Validate JWT token
+// Validate JWT
 $user = validate_jwt();
 if (!$user) {
-    http_response_code(401);
+    http_response_code(401); // Unauthorized
     echo json_encode(['error' => 'Unauthorized: Invalid or expired token']);
     exit;
 }
 
-// Get user data from token
 $user_id = $user->user_id;
 $user_role = $user->role;
 
-// Check if request method is DELETE
 if ($_SERVER['REQUEST_METHOD'] !== 'DELETE') {
-    http_response_code(405); // Method Not Allowed
+    http_response_code(405); // Not Allowed
     echo json_encode(['error' => 'Invalid request method']);
     exit;
 }
 
-// Read the raw DELETE request body
+// Read request body
 $data = json_decode(file_get_contents("php://input"), true);
 if (!isset($data['post_id'])) {
     http_response_code(400); // Bad Request
@@ -33,9 +31,9 @@ if (!isset($data['post_id'])) {
     exit;
 }
 
-$post_id = intval($data['post_id']); // Sanitize input
+$post_id = intval($data['post_id']);
 
-// Fetch the post owner
+// Fetch post (owner)
 $sql_fetch_post = "SELECT user_id FROM Posts WHERE post_id = ?";
 $stmt = $conn->prepare($sql_fetch_post);
 $stmt->bind_param('i', $post_id);
@@ -53,7 +51,7 @@ $post_owner_id = $post['user_id'];
 
 // Check if the user is allowed to delete the post
 if ($user_id === $post_owner_id || $user_role === 'admin' || $user_role === 'editor') {
-    // Proceed to delete the post
+    // delete post
     $sql_delete_post = "DELETE FROM Posts WHERE post_id = ?";
     $stmt_delete = $conn->prepare($sql_delete_post);
     $stmt_delete->bind_param('i', $post_id);

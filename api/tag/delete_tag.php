@@ -1,9 +1,8 @@
 <?php
 // Include necessary files
 include('../../db_connection.php');
-include('../auth.php'); // Include auth.php for JWT validation
+include('../auth.php');
 
-// Set response header
 header('Content-Type: application/json');
 
 // Validate JWT token
@@ -14,19 +13,18 @@ if (!$user) {
     exit;
 }
 
-// Check if the user has admin privileges
+// Authorization check
 if ($user->role !== 'admin') {
     http_response_code(403); // Forbidden
     echo json_encode(['error' => 'Only admins can delete tags']);
     exit;
 }
 
-// Check if tag_id is provided in the DELETE request body
 $data = json_decode(file_get_contents("php://input"), true);
 if (isset($data['tag_id'])) {
-    $tag_id = intval($data['tag_id']); // Sanitize input
+    $tag_id = intval($data['tag_id']);
 
-    // Delete the tag from the database
+    // Delete the tag
     $sql_delete_tag = "DELETE FROM Tags WHERE tag_id = ?";
     $stmt_delete_tag = $conn->prepare($sql_delete_tag);
     $stmt_delete_tag->bind_param('i', $tag_id);
