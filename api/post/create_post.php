@@ -31,6 +31,26 @@ $title = $data['title'];
 $content = $data['content'];
 $tags = isset($data['tags']) ? $data['tags'] : [];
 
+// Validate all tags first
+if (!empty($tags)) {
+    foreach ($tags as $tag_id) {
+        // Check if tag exists in Tags table
+        $sql_check_tag = "SELECT COUNT(*) FROM Tags WHERE tag_id = ?";
+        $stmt_check_tag = $conn->prepare($sql_check_tag);
+        $stmt_check_tag->bind_param('i', $tag_id);
+        $stmt_check_tag->execute();
+        $stmt_check_tag->bind_result($tag_count);
+        $stmt_check_tag->fetch();
+        $stmt_check_tag->close();
+
+        if ($tag_count == 0) {
+            http_response_code(400); // Bad Request
+            echo json_encode(['error' => "Tag ID $tag_id does not exist"]);
+            exit;
+        }
+    }
+}
+
 // Insert post
 $sql = "INSERT INTO Posts (title, content, user_id) VALUES (?, ?, ?)";
 $stmt = $conn->prepare($sql);
@@ -41,6 +61,7 @@ if ($stmt->execute()) {
 
     if (!empty($tags)) {
         foreach ($tags as $tag_id) {
+            // Insert tag into Post_Tags table
             $sql_tag = "INSERT INTO Post_Tags (post_id, tag_id) VALUES (?, ?)";
             $stmt_tag = $conn->prepare($sql_tag);
             $stmt_tag->bind_param('ii', $post_id, $tag_id);

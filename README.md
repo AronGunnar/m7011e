@@ -13,14 +13,13 @@ Setup
     git clone https://github.com/AronGunnar/m7011e<br>
     Place the project folder in "C:/xampp/htdocs/".<br>
 
-4. Configure Database<br>
-    Open db_connection.php.<br>
-    Update MySQL credentials:<br>
-    $servername = "fuxcp.h.filess.io";<br>
-    $username = "m7011e_recalltea";<br>
-    $password = "db08c1af076bb0f865adc178705b4ed4c8318e4c";<br>
-    $dbname = "m7011e_recalltea";<br>
+4. download composer and firebase jwt token<br>
+    download composer<br>
+    run the command "composer require firebase/php-jwt" in your terminal<br>
 
-5. Access the Project<br>
+5. Access database data<br>
     Open your browser and go to:<br>
-    http://localhost:8080/your-project-folder/index.php (or whatever your Apache port is)<br>
+    http://localhost:8080/your-project-folder/view_all_data.php (or whatever your Apache port is)<br>
+
+6. Postman<br>
+    create your own postman workspace and use the api endpoints from the git repository.<br>
